@@ -1,0 +1,243 @@
+[gd_scene load_steps=17 format=2]
+
+[ext_resource path="res://scripts/vehicle.gd" type="Script" id=1]
+[ext_resource path="res://scripts/brake_light.gd" type="Script" id=2]
+[ext_resource path="res://scripts/smoke_trail.gd" type="Script" id=3]
+[ext_resource path="res://scripts/wheel.gd" type="Script" id=4]
+[ext_resource path="res://scripts/follow_camera.gd" type="Script" id=5]
+[ext_resource path="res://meshes/car_body.glb" type="PackedScene" id=6]
+[ext_resource path="res://meshes/car_wheel.glb" type="PackedScene" id=8]
+
+[sub_resource type="CubeMesh" id=16]
+
+[sub_resource type="Shader" id=17]
+code = "shader_type spatial;
+render_mode unshaded, shadows_disabled, depth_test_disable, depth_draw_never;
+
+uniform int color_depth : hint_range(1, 8) = 5;
+uniform bool dithering = true;
+uniform int resolution_scale = 4;
+
+int dithering_pattern(ivec2 fragcoord) {
+	const int pattern[] = {
+		-4, +0, -3, +1, 
+		+2, -2, +3, -1, 
+		-3, +1, -4, +0, 
+		+3, -1, +2, -2
+	};
+	
+	int x = fragcoord.x % 4;
+	int y = fragcoord.y % 4;
+	
+	return pattern[y * 4 + x];
+}
+
+void vertex() {
+	POSITION = vec4(VERTEX, 1.0);
+}
+
+void fragment() {
+	ivec2 uv = ivec2(FRAGCOORD.xy / float(resolution_scale));
+	vec3 color = texelFetch(SCREEN_TEXTURE, uv * resolution_scale, 0).rgb;
+	
+	// Convert from [0.0, 1.0] range to [0, 255] range
+	ivec3 c = ivec3(round(color * 255.0));
+	
+	// Apply the dithering pattern
+	if (dithering) {
+		c += ivec3(dithering_pattern(uv));
+	}
+	
+	// Truncate from 8 bits to color_depth bits
+	c >>= (8 - color_depth);
+
+	// Convert back to [0.0, 1.0] range
+	ALBEDO = vec3(c) / float(1 << color_depth);
+}"
+
+[sub_resource type="ShaderMaterial" id=18]
+shader = SubResource( 17 )
+shader_param/color_depth = 5
+shader_param/dithering = true
+shader_param/resolution_scale = 4
+
+[sub_resource type="BoxShape" id=13]
+extents = Vector3( 0.588119, 0.34815, 1.11998 )
+
+[sub_resource type="Curve" id=24]
+_data = [ Vector2( 0, 0.0727272 ), 0.0, 0.0, 0, 0, Vector2( 0.364198, 1 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="CurveTexture" id=25]
+curve = SubResource( 24 )
+
+[sub_resource type="ParticlesMaterial" id=19]
+gravity = Vector3( 0, 5, -15 )
+scale = 3.0
+scale_random = 0.43
+scale_curve = SubResource( 25 )
+
+[sub_resource type="SpatialMaterial" id=23]
+flags_unshaded = true
+flags_do_not_receive_shadows = true
+flags_disable_ambient_light = true
+albedo_color = Color( 0.427451, 0.396078, 0.396078, 1 )
+
+[sub_resource type="CubeMesh" id=20]
+material = SubResource( 23 )
+size = Vector3( 0.08, 0.01, 0.1 )
+
+[node name="CarBase" type="Spatial"]
+_import_path = NodePath(".")
+__meta__ = {
+"__editor_plugin_screen__": "3D"
+}
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+_import_path = NodePath("AnimationPlayer")
+
+[node name="Body2" type="VehicleBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.00169557, 0.222867, -0.00608456 )
+collision_layer = 3
+collision_mask = 3
+mass = 35.7143
+angular_damp = 5.0
+script = ExtResource( 1 )
+engine_force_value = 60
+
+[node name="Wheel1" type="VehicleWheel" parent="Body2"]
+transform = Transform( 1.5, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0.45, 0.021, 0.554539 )
+use_as_traction = true
+use_as_steering = true
+wheel_radius = 0.18
+wheel_friction_slip = 1.0
+suspension_travel = 0.5
+suspension_stiffness = 30.0
+suspension_max_force = 5000.0
+damping_compression = 0.8
+damping_relaxation = 0.8
+
+[node name="Car3 wheel" parent="Body2/Wheel1" instance=ExtResource( 8 )]
+transform = Transform( 0.44541, 0, 0, 0, 0.44541, 0, 0, 0, 0.44541, 0, 0, 0 )
+
+[node name="Wheel2" type="VehicleWheel" parent="Body2"]
+transform = Transform( 1.5, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0.45, 0.021, -0.748461 )
+use_as_traction = true
+wheel_radius = 0.18
+wheel_friction_slip = 0.9
+suspension_travel = 0.5
+suspension_stiffness = 30.0
+suspension_max_force = 5000.0
+damping_compression = 0.8
+damping_relaxation = 0.8
+script = ExtResource( 4 )
+drift_brake = 0
+
+[node name="Car3 wheel" parent="Body2/Wheel2" instance=ExtResource( 8 )]
+transform = Transform( 0.44541, 0, 0, 0, 0.44541, 0, 0, 0, 0.44541, 0, 0, 0 )
+
+[node name="Wheel3" type="VehicleWheel" parent="Body2"]
+transform = Transform( 1.5, 0, 0, 0, 0.8, 0, 0, 0, 0.8, -0.45, 0.021, 0.554539 )
+use_as_traction = true
+use_as_steering = true
+wheel_radius = 0.18
+wheel_friction_slip = 1.0
+suspension_travel = 0.5
+suspension_stiffness = 30.0
+suspension_max_force = 5000.0
+damping_compression = 0.8
+damping_relaxation = 0.8
+
+[node name="Car3 wheel" parent="Body2/Wheel3" instance=ExtResource( 8 )]
+transform = Transform( 0.44541, 0, 0, 0, 0.44541, 0, 0, 0, 0.44541, 0, 0, 0 )
+
+[node name="Wheel4" type="VehicleWheel" parent="Body2"]
+transform = Transform( 1.5, 0, 0, 0, 0.8, 0, 0, 0, 0.8, -0.45, 0.021, -0.748461 )
+use_as_traction = true
+wheel_radius = 0.18
+wheel_friction_slip = 0.9
+suspension_travel = 0.5
+suspension_stiffness = 30.0
+suspension_max_force = 5000.0
+damping_compression = 0.8
+damping_relaxation = 0.8
+script = ExtResource( 4 )
+drift_brake = 0
+
+[node name="Car3 wheel" parent="Body2/Wheel4" instance=ExtResource( 8 )]
+transform = Transform( 0.44541, 0, 0, 0, 0.44541, 0, 0, 0, 0.44541, 0, 0, 0 )
+
+[node name="Body" parent="Body2" instance=ExtResource( 6 )]
+transform = Transform( 0.484662, 0, 0, 0, 0.465276, 4.83018e-09, 0, 3.13371e-09, 0.373543, 0.00169462, -0.222869, -0.0783048 )
+
+[node name="CameraBase" type="Spatial" parent="Body2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.97449, 0 )
+
+[node name="Camera" type="Camera" parent="Body2/CameraBase"]
+transform = Transform( 0.542118, 0.259601, -0.799197, 0.071625, 0.933346, 0.351761, 0.837245, -0.247938, 0.487389, 1.62113, -2.69359, 1.17984 )
+current = true
+script = ExtResource( 5 )
+min_distance = 3.5
+height = 1.0
+
+[node name="Shader" type="MeshInstance" parent="Body2/CameraBase"]
+mesh = SubResource( 16 )
+material/0 = SubResource( 18 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Body2"]
+transform = Transform( 0.8625, 0, 0, 0, 0.8625, 0, 0, 0, 0.69, -4.65661e-10, 0.357584, 0.158785 )
+shape = SubResource( 13 )
+
+[node name="SpotLight" type="SpotLight" parent="Body2"]
+transform = Transform( 0.544449, -0.838723, 0.0109258, -0.837902, -0.543223, 0.0531986, -0.0386838, -0.0381187, -0.998524, -0.340351, 0.155118, 1.21095 )
+visible = false
+light_color = Color( 0.898039, 0.87451, 0.819608, 1 )
+light_energy = 0.5
+spot_range = 13.7553
+spot_angle = 49.0883
+
+[node name="SpotLight2" type="SpotLight" parent="Body2"]
+transform = Transform( 0.544449, -0.838723, 0.0109258, -0.837902, -0.543223, 0.0531986, -0.0386838, -0.0381187, -0.998524, 0.391804, 0.210097, 1.30647 )
+visible = false
+light_color = Color( 0.898039, 0.87451, 0.819608, 1 )
+light_energy = 0.5
+spot_range = 13.7553
+spot_angle = 54.8438
+
+[node name="Brake Light Left" type="OmniLight" parent="Body2"]
+transform = Transform( -0.0309819, 0.998073, -0.0537712, 0.998156, 0.0337041, 0.0504798, 0.0521949, -0.0521081, -0.997277, 0.317586, 0.226577, -1.13305 )
+light_color = Color( 0.733333, 0, 0, 1 )
+light_energy = 10.0
+light_indirect_energy = 0.0
+omni_range = 0.15
+omni_attenuation = 1.86607
+script = ExtResource( 2 )
+
+[node name="Brake Light Right" type="OmniLight" parent="Body2"]
+transform = Transform( -0.0309819, 0.998073, -0.0537712, 0.998156, 0.0337041, 0.0504798, 0.0521949, -0.0521081, -0.997277, -0.349095, 0.226577, -1.13305 )
+light_color = Color( 0.733333, 0, 0, 1 )
+light_energy = 10.0
+light_indirect_energy = 0.0
+omni_range = 0.15
+omni_attenuation = 1.86607
+script = ExtResource( 2 )
+
+[node name="Tire Trail Right" type="Particles" parent="Body2"]
+transform = Transform( -0.998382, -0.0560747, -0.00944289, 0.00706772, -0.28714, 0.957863, -0.0564233, 0.956246, 0.287072, -0.430707, -0.120028, -0.792799 )
+amount = 20
+lifetime = 0.5
+fract_delta = false
+visibility_aabb = AABB( -13.9312, -7.53856, -4.65022, 23.792, 17.165, 8.92244 )
+local_coords = false
+process_material = SubResource( 19 )
+draw_pass_1 = SubResource( 20 )
+script = ExtResource( 3 )
+
+[node name="Tire Trail Left" type="Particles" parent="Body2"]
+transform = Transform( -0.99946, -0.0314907, -0.00944286, 0, -0.287227, 0.957863, -0.032876, 0.957345, 0.287072, 0.432592, -0.120028, -0.792799 )
+amount = 20
+lifetime = 0.5
+visibility_aabb = AABB( -4.275, -7.539, -14.173, 23.792, 17.165, 25.192 )
+local_coords = false
+process_material = SubResource( 19 )
+draw_pass_1 = SubResource( 20 )
+script = ExtResource( 3 )

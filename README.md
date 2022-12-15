@@ -1,6 +1,8 @@
 # Pocket GT
 
-A (WIP) mini car racing RPG built in Godot Engine.
+A (WIP) mini car RPG built in Godot Engine.
+
+https://user-images.githubusercontent.com/1292831/207772685-ba9f804d-ae0e-4dc7-8ed4-7bba1d1dc46e.mp4
 
 # Credits
 
